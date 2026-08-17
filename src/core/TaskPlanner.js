@@ -1,114 +1,103 @@
 const Logger = require('../utils/Logger');
 
 class TaskPlanner {
-  constructor(botClient, llmClient, mcpServer, swarmManager) {
-    this.bot = botClient;
-    this.llm = llmClient;
+  constructor(bot, llm, mcpServer) {
+    this.bot = bot;
+    this.llm = llm;
     this.mcp = mcpServer;
-    this.swarm = swarmManager;
     this.isExecuting = false;
-    this.history = [];
   }
 
   async executeGoal(goal, context = {}) {
-    if (this.isExecuting) {
-      this.bot.chat('⏳ Zaten bir görev üzerinde çalışıyorum, lütfen bekleyin.');
-      return;
-    }
+    if (this.isExecuting) return Logger.warn('Zaten bir görev yürütülüyor.');
     this.isExecuting = true;
-    Logger.info(`🎯 Yeni hedef: ${goal}`);
+    Logger.info(`🎯 Hedef: ${goal}`);
 
     try {
-      // Hedefi anlamak için LLM'e sor
-      const toolsList = ['go_to', 'dig_block', 'craft_item', 'get_inventory', 'place_block', 'web_search', 'start_fishing', 'attack_player', 'build_house', 'start_mining', 'farm_crops'];
-      
+      const pos = this.bot.entity.position;
+      const state = {
+        position: `${Math.floor(pos.x)}, ${Math.floor(pos.y)}, ${Math.floor(pos.z)}`,
+        health: Math.round(this.bot.entity.health),
+        food: Math.round(this.bot.entity.food),
+        inventory: this.bot.inventory.items().map(i => `${i.name}x${i.count}`).join(', ') || 'boş',
+      };
+
       const prompt = `
-        Kullanıcı sana şu hedefi verdi: "${goal}"
-        Mevcut konumun: ${JSON.stringify(this.bot.getStatus().position)}
-        Kullanabileceğin araçlar: ${toolsList.join(', ')}
+        Kullanıcı şu hedefi verdi: "${goal}"
+        Şu anki durumun: ${JSON.stringify(state)}
         
-        Bu hedefi gerçekleştirmek için hangi aracı/araçları kullanmalısın?
-        Sadece şu JSON formatında cevap ver:
+        Eğer bu hedef için yapabileceğin bir şey varsa, sadece JSON formatında cevap ver:
         {
-          "thought": "Hedefi gerçekleştirmek için planın",
-          "tool": "kullanılacak araç adı",
-          "params": { "param1": "değer" },
-          "subGoal": "varsa bir sonraki ara hedef, yoksa null"
+          "action": "chat" veya "go_to" veya "dig" veya "craft" veya "inventory" veya "follow",
+          "params": { ... },
+          "message": "Yapmak istediğin eylemle ilgili kısa bir açıklama"
         }
-        Eğer hedef bir selamlaşma veya sohbet ise "tool" alanını "CHAT" yap ve "params" içine "reply" anahtarı ile cevabını yaz.
+        Eğer hedef zaten tamamlandıysa veya bir eylem gerekmiyorsa "action" alanını "done" yap.
+        
+        Sadece JSON çıktısı ver, başka metin yazma.
       `;
 
       const response = await this.llm.ask(prompt);
       let plan;
-      try {
-        plan = JSON.parse(response);
-      } catch {
-        // JSON parse hatası -> direkt cevap olarak kabul et
-        this.bot.chat(response.substring(0, 200));
+      try { plan = JSON.parse(response); } catch (e) { plan = { action: 'chat', params: { message: response } }; }
+
+      if (plan.action === 'done') {
+        this.bot.chat('✅ Hedef tamamlandı.');
+        Logger.success('Hedef tamamlandı.');
         this.isExecuting = false;
         return;
       }
 
-      Logger.info(`🧠 Plan: ${plan.thought}`);
+      // Eylemi gerçekleştir
+      await this.executeAction(plan);
 
-      if (plan.tool === 'CHAT') {
-        this.bot.chat(plan.params.reply || 'Anladım!');
-        this.isExecuting = false;
-        return;
-      }
-
-      // MCP aracını çağır
-      if (this.mcp && this.mcp.server) {
-        try {
-          const result = await this.mcp.server.callTool(plan.tool, plan.params);
-          if (result && result.content) {
-            const text = result.content[0]?.text || 'İşlem tamamlandı.';
-            this.bot.chat(`✅ ${text}`);
-          }
-        } catch (err) {
-          Logger.error(`❌ MCP aracı hatası: ${err.message}`);
-          this.bot.chat(`❌ Bir hata oluştu: ${err.message}`);
-        }
-      } else {
-        // Fallback: doğrudan BotClient üzerinden manuel
-        await this.executeManual(plan.tool, plan.params);
-      }
-
-      // Varsa alt hedefi de dene (basit zincirleme)
-      if (plan.subGoal) {
-        setTimeout(() => {
-          this.executeGoal(plan.subGoal, context);
-        }, 2000);
-      }
-
-    } catch (error) {
-      Logger.error(`❌ Planlama hatası: ${error.message}`);
-      this.bot.chat('❌ Bir şeyler ters gitti, tekrar dener misin?');
-    } finally {
-      this.isExecuting = false;
+    } catch (err) {
+      Logger.error('Planlama hatası:', err.message);
+      this.bot.chat('❌ Bir hata oluştu.');
     }
+
+    this.isExecuting = false;
   }
 
-  // MCP yoksa manuel fallback (basit)
-  async executeManual(tool, params) {
-    const { Vec3 } = require('vec3');
-    switch(tool) {
-      case 'go_to':
-        await this.bot.pathfinder.goto(new Vec3(params.x, params.y, params.z));
-        break;
-      case 'dig_block':
-        const block = this.bot.findBlock({ matching: (b) => b.name === params.blockName, maxDistance: 32 });
-        if (block) await this.bot.collectBlock.collect(block);
-        break;
+  async executeAction(plan) {
+    const { action, params } = plan;
+    switch (action) {
       case 'chat':
-        this.bot.chat(params.message);
+        this.bot.chat(params.message || 'Tamam.');
         break;
-      case 'get_inventory':
-        const items = this.bot.inventory.items().map(i => `${i.name}x${i.count}`).join(', ');
-        this.bot.chat(`📦 Envanter: ${items}`);
+      case 'go_to': {
+        const { x, y, z } = params;
+        const target = new Vec3(x, y, z);
+        const mcData = require('minecraft-data')(this.bot.version);
+        const { Movements } = require('mineflayer-pathfinder');
+        const move = new Movements(this.bot.bot, mcData);
+        this.bot.bot.pathfinder.setMovements(move);
+        await this.bot.bot.pathfinder.goto(target);
+        this.bot.chat(`📍 (${x}, ${y}, ${z}) gidildi.`);
         break;
+      }
+      case 'dig': {
+        const blockName = params.blockName || 'stone';
+        const mcData = require('minecraft-data')(this.bot.version);
+        const blockType = mcData.blocksByName[blockName];
+        if (!blockType) { this.bot.chat(`❌ ${blockName} geçerli değil.`); break; }
+        const block = this.bot.findBlock({ matching: blockType.id, maxDistance: 32 });
+        if (!block) { this.bot.chat(`❌ ${blockName} bulunamadı.`); break; }
+        await this.bot.bot.collectBlock.collect(block);
+        this.bot.chat(`✅ ${blockName} kazıldı.`);
+        break;
+      }
+      case 'inventory': {
+        const items = this.bot.inventory.items();
+        if (items.length === 0) this.bot.chat('📭 Envanter boş.');
+        else {
+          const list = items.map(i => `${i.name} x${i.count}`).join(', ');
+          this.bot.chat(`📦 Envanter: ${list}`);
+        }
+        break;
+      }
       default:
-        this.bot.chat(`⚠️ Henüz ${tool} işlemini desteklemiyorum.`);
+        this.bot.chat(`❌ Bilinmeyen eylem: ${action}`);
     }
   }
 }
