@@ -1,4 +1,3 @@
-// src/core/BotManager.js
 const BotClient = require('./BotClient');
 const LLMClient = require('./LLMClient');
 const TaskPlanner = require('./TaskPlanner');
@@ -17,18 +16,13 @@ class BotManager {
   }
 
   async startBot(config) {
-    if (this.isRunning) {
-      throw new Error('Bot zaten çalışıyor.');
-    }
-
+    if (this.isRunning) throw new Error('Bot zaten çalışıyor.');
     this.config = config;
     Logger.info(`🚀 Bot başlatılıyor: ${config.username} -> ${config.host}:${config.port}`);
 
-    // 1. Swarm Manager
     this.swarm = new SwarmManager();
     await this.swarm.init();
 
-    // 2. BotClient
     this.bot = new BotClient({
       host: config.host,
       port: config.port,
@@ -37,18 +31,14 @@ class BotManager {
     await this.bot.start();
     this.swarm.registerBot(this.bot);
 
-    // 3. MCP Sunucusu
     this.mcpServer = new MinecraftServer(this.bot);
     await this.mcpServer.start();
 
-    // 4. LLM ve Planner
     const llmClient = new LLMClient(config.apiKey);
     this.planner = new TaskPlanner(this.bot, llmClient, this.mcpServer, this.swarm);
 
-    // 5. Sohbet dinleyicisi (doğal dil, ! işareti yok)
     this.bot.on('chat', async (username, message) => {
       if (username === this.bot.username) return;
-      // Eğer mesaj "ara" ile başlıyorsa web arama yap
       if (message.startsWith('ara ')) {
         const query = message.slice(4);
         const result = await this.mcpServer.server.callTool('web_search', { query });
@@ -57,16 +47,14 @@ class BotManager {
         }
         return;
       }
-      // Normal komut (doğal dil)
       await this.planner.executeGoalWithMCP(message, { sender: username });
     });
 
-    // 6. Periyodik görsel hafıza
     setInterval(async () => {
       if (this.bot && this.bot.entity) {
         try {
           await this.swarm.memorizeEnvironment(this.bot);
-        } catch (e) { /* sessiz */ }
+        } catch (e) {}
       }
     }, 30000);
 
@@ -89,10 +77,7 @@ class BotManager {
   }
 
   async sendCommand(command) {
-    if (!this.isRunning || !this.bot) {
-      throw new Error('Bot çalışmıyor.');
-    }
-    // Bot'un chat event'ini tetikle (sanki oyuncu yazmış gibi)
+    if (!this.isRunning || !this.bot) throw new Error('Bot çalışmıyor.');
     this.bot.emit('chat', 'Dashboard', command);
   }
 
@@ -108,7 +93,7 @@ class BotManager {
       health: Math.round(this.bot.entity.health),
       food: Math.round(this.bot.entity.food),
       isProcessing: this.planner ? this.planner.isExecuting : false,
-      memoryCount: this.swarm ? this.swarm.memory.count() : 0
+      memoryCount: this.swarm ? await this.swarm.memory.count() : 0
     };
   }
 
