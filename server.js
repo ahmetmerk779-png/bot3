@@ -1,160 +1,101 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
+const path = require('path');
 const { Telegraf } = require('telegraf');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 const botManager = require('./botManager');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+// Statik Dosyaları Sun
+app.use(express.static(path.join(__dirname, 'public')));
 
-// RENDER UYANIK TUTMA (SELF-PING)
-const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
-if (RENDER_EXTERNAL_URL) {
-  setInterval(() => {
-    axios.get(`${RENDER_EXTERNAL_URL}/health`).catch(() => {});
-  }, 10 * 60 * 1000);
-}
-
-// TELEGRAM BOT ENTEGRASYONU (Çökme Korumalı)
-if (process.env.TELEGRAM_TOKEN) {
-  try {
-    const tBot = new Telegraf(process.env.TELEGRAM_TOKEN);
-
-    tBot.command('durum', (ctx) => {
-      const bots = botManager.getBotStatus();
-      if (bots.length === 0) return ctx.reply("Aktif bot bulunmuyor.");
-      let msg = "🤖 **BOT STATUS OVERVIEW**\n";
-      bots.forEach(b => {
-        const pos = b.position ? `X: ${b.position.x} Y: ${b.position.y} Z: ${b.position.z}` : 'Bilinmiyor';
-        msg += `• **${b.username}** | Can: ${b.health} | TPS: ${b.tps} | ${pos}\n`;
-      });
-      ctx.replyWithMarkdown(msg);
-    });
-
-    tBot.command('mesaj', (ctx) => {
-      const text = ctx.message.text.split(' ').slice(1).join(' ');
-      if (!text) return ctx.reply("Kullanım: /mesaj <yazı>");
-      botManager.sendChat(text);
-      ctx.reply(`Sohbete iletildi: ${text}`);
-    });
-
-    tBot.command('saldir', (ctx) => {
-      const target = ctx.message.text.split(' ')[1];
-      if (target) {
-        botManager.attackEntity(target);
-        ctx.reply(`${target} hedefine saldırı emri verildi.`);
-      }
-    });
-
-    tBot.command('takip', (ctx) => {
-      const target = ctx.message.text.split(' ')[1];
-      if (target) {
-        botManager.followPlayer(target);
-        ctx.reply(`${target} takibe alındı.`);
-      }
-    });
-
-    tBot.command('cop', async (ctx) => {
-      const msg = await botManager.clearTrash();
-      ctx.reply(msg);
-    });
-
-    tBot.launch().catch(err => console.error('[Telegram Error]:', err.message));
-  } catch (e) {
-    console.error('[Telegram Init Error]:', e.message);
+// Prismarine Viewer Proxy
+app.use('/viewer', createProxyMiddleware({
+  target: `http://localhost:${botManager.viewerPort}`,
+  changeOrigin: true,
+  ws: true,
+  logLevel: 'silent',
+  onError: (req, res) => {
+    res.status(503).send('3D Viewer henüz aktif değil. Lütfen bot başlatın.');
   }
+}));
+
+// Telegram Bot Entegrasyonu (TELEGRAM_TOKEN tanımlıysa çalışır)
+if (process.env.TELEGRAM_TOKEN) {
+  const tgBot = new Telegraf(process.env.TELEGRAM_TOKEN);
+  tgBot.start((ctx) => ctx.reply('🤖 Bot paneline hoşgeldiniz. /status ve /stop komutları kullanılabilir.'));
+  tgBot.command('status', (ctx) => {
+    const status = botManager.getStatus();
+    if (status.length === 0) return ctx.reply('Aktif bot yok.');
+    ctx.reply(status.map(b => `🤖 ${b.username} | Can: ${b.health} | POS: ${b.position ? `${b.position.x},${b.position.y},${b.position.z}` : 'Yok'}`).join('\n'));
+  });
+  tgBot.command('stop', (ctx) => {
+    botManager.stopAll();
+    ctx.reply('Tüm botlar durduruldu.');
+  });
+  tgBot.launch().catch(e => console.error('[Telegram] Hata:', e.message));
 }
 
-// REST API ENDPOINTS
-app.get('/health', (req, res) => res.status(200).send('OK - Alive'));
+// REST API
+app.get('/api/status', (req, res) => res.json({ bots: botManager.getStatus() }));
 
 app.post('/api/spawn', (req, res) => {
-  try {
-    botManager.spawnBots(req.body);
-    res.json({ success: true, message: "Botlar başlatılıyor." });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  botManager.spawnBots(req.body);
+  res.json({ message: 'Botlar başlatılıyor...' });
 });
 
-// Temel Eylemler & PVP
-app.post('/api/attack', (req, res) => {
-  res.json({ success: true, message: botManager.attackEntity(req.body.entityName, req.body.botName || 'all') });
-});
-
-app.post('/api/follow', (req, res) => {
-  res.json({ success: true, message: botManager.followPlayer(req.body.username, req.body.botName || 'all') });
-});
-
-app.post('/api/dig', async (req, res) => {
-  const { x, y, z, botName } = req.body;
-  res.json({ success: true, message: await botManager.digBlock(x, y, z, botName || 'all') });
-});
-
-app.post('/api/collect', async (req, res) => {
-  const { blockName, count, botName } = req.body;
-  res.json({ success: true, message: await botManager.collectBlockType(blockName, count, botName || 'all') });
-});
-
-app.post('/api/equip-armor', async (req, res) => {
-  res.json({ success: true, message: await botManager.equipArmor(req.body.botName || 'all') });
-});
-
-app.post('/api/drop-item', async (req, res) => {
-  const { itemName, amount, botName } = req.body;
-  res.json({ success: true, message: await botManager.dropItem(itemName, amount, botName || 'all') });
-});
-
-app.post('/api/trash/clear', async (req, res) => {
-  res.json({ success: true, message: await botManager.clearTrash(req.body.botName || 'all') });
-});
-
-app.post('/api/chest/deposit', async (req, res) => {
-  const { x, y, z, filterItems, botName } = req.body;
-  res.json({ success: true, message: await botManager.depositToChest(x, y, z, filterItems || [], botName || 'all') });
-});
-
-// Otomasyon & Modlar
-app.post('/api/afk/start', (req, res) => res.json({ success: true, message: botManager.startAntiAfk(req.body.botName || 'all') }));
-app.post('/api/afk/stop', (req, res) => res.json({ success: true, message: botManager.stopAntiAfk(req.body.botName || 'all') }));
-
-app.post('/api/guard/start', (req, res) => {
-  const { username, radius, botName } = req.body;
-  res.json({ success: true, message: botManager.startGuard(username, radius || 5, botName || 'all') });
-});
-
-app.post('/api/fish/start', (req, res) => res.json({ success: true, message: botManager.startFishing(req.body.botName || 'all') }));
-
-app.post('/api/bow/shoot', (req, res) => {
-  const { targetUsername, weapon, botName } = req.body;
-  res.json({ success: true, message: botManager.shootBow(targetUsername, weapon || 'bow', botName || 'all') });
-});
-
-app.post('/api/autocraft', async (req, res) => {
-  const { itemName, count, botName } = req.body;
-  res.json({ success: true, message: await botManager.autoCraft(itemName, count, botName || 'all') });
-});
-
-app.post('/api/goto', (req, res) => {
-  const { x, y, z, botName } = req.body;
-  res.json({ success: true, message: botManager.goToLocation(x, y, z, botName || 'all') });
+app.post('/api/stop', (req, res) => {
+  botManager.stopAll();
+  res.json({ message: 'Tüm botlar durduruldu.' });
 });
 
 app.post('/api/chat', (req, res) => {
-  res.json({ success: true, message: botManager.sendChat(req.body.message, req.body.botName || 'all') });
+  botManager.sendChat(req.body.message);
+  res.json({ message: 'Mesaj gönderildi.' });
 });
 
-app.get('/api/status', (req, res) => res.json({ bots: botManager.getBotStatus() }));
-app.post('/api/stop', (req, res) => res.json({ success: true, message: botManager.stopBots(req.body.botName || 'all') }));
+app.post('/api/goto', (req, res) => {
+  const { x, y, z } = req.body;
+  botManager.goto(parseFloat(x), parseFloat(y), parseFloat(z));
+  res.json({ message: `Pathfinding Hedefi: (${x}, ${y}, ${z})` });
+});
 
-// SUNUCU KAPANIRKEN BOTLARI GÜVENLİ KAPATMA
-process.on('SIGINT', () => {
-  console.log('[Sistem] Sunucu kapatılıyor, botlar ayrılıyor...');
-  botManager.stopBots('all');
-  process.exit(0);
+app.post('/api/follow', (req, res) => {
+  const ok = botManager.follow(req.body.username);
+  if (ok) res.json({ message: `${req.body.username} takip ediliyor.` });
+  else res.status(404).json({ message: 'Oyuncu görüş alanında bulunamadı.' });
+});
+
+app.post('/api/attack', (req, res) => {
+  botManager.attack(req.body.entityName);
+  res.json({ message: 'Saldırı komutu iletildi.' });
+});
+
+app.post('/api/trash/clear', async (req, res) => {
+  await botManager.clearTrash();
+  res.json({ message: 'Envanterdeki çöpler temizlendi.' });
+});
+
+app.post('/api/equip-armor', async (req, res) => {
+  await botManager.equipArmor();
+  res.json({ message: 'Zırhlar giyildi.' });
+});
+
+app.post('/api/afk/start', (req, res) => {
+  botManager.startAfk();
+  res.json({ message: 'Anti-AFK başlatıldı.' });
+});
+
+app.post('/api/afk/stop', (req, res) => {
+  botManager.stopAfk();
+  res.json({ message: 'Anti-AFK durduruldu.' });
 });
 
 app.listen(PORT, () => {
-  console.log(`[API] Ekstrem Birleşik Bot Sistemi ${PORT} Portunda Aktif.`);
+  console.log(`\n🚀 Panel Çalışıyor: http://localhost:${PORT}`);
 });
