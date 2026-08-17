@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: groq-minecraft-bot
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PORT
+        value: 3000
+    disk:
+      name: bot-data
+      mountPath: /opt/render/project/src/temp_vision
+      sizeGB: 1
+    healthCheckPath: /api/status
