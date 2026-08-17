@@ -1,17 +1,20 @@
-const winston = require('winston');
+// src/utils/Logger.js
+const fs = require('fs');
+const path = require('path');
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.printf(({ timestamp, level, message }) => {
-      return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
-    })
-  ),
-  transports: [
-    new winston.transports.Console({ format: winston.format.simple() }),
-    new winston.transports.File({ filename: 'bot.log' })
-  ]
-});
+class Logger {
+  static log(level, message) {
+    const timestamp = new Date().toISOString();
+    const logLine = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+    console.log(logLine);
+    // Dosyaya da yazmak istersen:
+    // fs.appendFileSync(path.join(__dirname, '../../logs.txt'), logLine + '\n');
+  }
 
-module.exports = logger;
+  static info(msg) { this.log('info', msg); }
+  static success(msg) { this.log('success', msg); }
+  static warn(msg) { this.log('warn', msg); }
+  static error(msg) { this.log('error', msg); }
+}
+
+module.exports = Logger;
