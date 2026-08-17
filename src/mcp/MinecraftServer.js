@@ -7,10 +7,7 @@ const cheerio = require('cheerio');
 class MinecraftServer {
   constructor(bot) {
     this.bot = bot;
-    this.server = new McpServer({
-      name: 'minecraft-bot',
-      version: '1.0.0',
-    });
+    this.server = new McpServer({ name: 'minecraft-bot', version: '1.0.0' });
     this.registerTools();
   }
 
