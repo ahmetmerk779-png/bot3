@@ -33,14 +33,14 @@
         </div>
       </section>
 
-      <!-- ORTA: SOHBET KONSOLLU -->
+      <!-- ORTA: SOHBET -->
       <section class="card chat-card">
         <h2>💬 Sohbet & Loglar</h2>
         <div id="chatLog" class="log-area">
           <div class="log-entry system">🟢 Dashboard bağlandı...</div>
         </div>
         <div class="chat-input">
-          <input type="text" id="commandInput" placeholder="Bot'a komut yaz (örn: bana tahta kazma ver)" />
+          <input type="text" id="commandInput" placeholder="Bot'a komut yaz (doğal dil)" />
           <button onclick="sendCustomCommand()">📤 Gönder</button>
         </div>
       </section>
@@ -56,7 +56,7 @@
       </section>
     </main>
 
-    <!-- ALT: HAFIZA ARAMA -->
+    <!-- HAFIZA ARAMA -->
     <footer class="card memory-search">
       <h3>🗄️ Hafıza Ara (Vektör DB)</h3>
       <div class="search-box">
@@ -66,13 +66,13 @@
       <div id="memoryResults"></div>
     </footer>
 
-    <!-- ★ YENİ: SUNUCU AYARLARI ★ -->
+    <!-- ★ SUNUCU AYARLARI ★ -->
     <footer class="card config-card" style="margin-top:20px; border-color: #58a6ff;">
       <h3>⚙️ Sunucu Ayarları (Botu Başlat)</h3>
       <div class="config-form">
         <div class="form-group">
           <label>Sunucu IP / Adresi</label>
-          <input type="text" id="configHost" placeholder="play.example.com veya 192.168.1.100" />
+          <input type="text" id="configHost" placeholder="play.example.com" />
         </div>
         <div class="form-group">
           <label>Port</label>
