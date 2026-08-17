@@ -1,5 +1,5 @@
 // src/memory/VectorMemory.js
-const lancedb = require('lancedb');
+const lancedb = require('@lancedb/lancedb');
 const path = require('path');
 const fs = require('fs');
 
@@ -13,91 +13,66 @@ class VectorMemory {
 
   async init() {
     if (this.initialized) return;
-    try {
-      if (!fs.existsSync(this.dbPath)) {
-        fs.mkdirSync(this.dbPath, { recursive: true });
-      }
-      // lancedb.connect artık doğru
-      this.db = await lancedb.connect(this.dbPath);
-      const tables = await this.db.tableNames();
-      if (!tables.includes('memories')) {
-        await this.db.createTable('memories', [
-          {
-            id: '0',
-            vector: Array(512).fill(0),
-            text: 'örnek hafıza',
-            coordinates: '0,0,0',
-            botId: 'system',
-            timestamp: Date.now(),
-          }
-        ]);
-        console.log('🗄️ Yeni "memories" tablosu oluşturuldu.');
-      }
-      this.table = await this.db.openTable('memories');
-      this.initialized = true;
-      console.log('🗄️ Vektör Veritabanı bağlantısı başarılı.');
-    } catch (err) {
-      console.error('❌ Vektör DB bağlantı hatası:', err.message);
-      throw err;
+    if (!fs.existsSync(this.dbPath)) {
+      fs.mkdirSync(this.dbPath, { recursive: true });
     }
+    this.db = await lancedb.connect(this.dbPath);
+    const tables = await this.db.tableNames();
+    if (!tables.includes('memories')) {
+      await this.db.createTable('memories', [
+        {
+          id: '0',
+          vector: Array(512).fill(0),
+          text: 'örnek hafıza',
+          coordinates: '0,0,0',
+          botId: 'system',
+          timestamp: Date.now(),
+        }
+      ]);
+      console.log('🗄️ Yeni "memories" tablosu oluşturuldu.');
+    }
+    this.table = await this.db.openTable('memories');
+    this.initialized = true;
+    console.log('🗄️ Vektör Veritabanı bağlantısı başarılı.');
   }
 
   async saveMemory(vector, text, coordinates, botId = 'unknown') {
     if (!this.initialized) await this.init();
     const id = `${Date.now()}_${botId.replace(/\s/g, '')}`;
-    try {
-      await this.table.add([
-        { id, vector, text, coordinates, botId, timestamp: Date.now() },
-      ]);
-      console.log(`💾 Hafıza kaydedildi: ${text.substring(0, 50)}... (${coordinates})`);
-      return id;
-    } catch (err) {
-      console.error('❌ Hafıza kaydedilemedi:', err.message);
-      throw err;
-    }
+    await this.table.add([
+      { id, vector, text, coordinates, botId, timestamp: Date.now() }
+    ]);
+    console.log(`💾 Hafıza kaydedildi: ${text.substring(0, 50)}... (${coordinates})`);
+    return id;
   }
 
   async searchMemories(queryVector, limit = 5) {
     if (!this.initialized) await this.init();
-    try {
-      const results = await this.table.search(queryVector).limit(limit).execute();
-      return results.map((r) => ({
-        id: r.id,
-        text: r.text,
-        coordinates: r.coordinates,
-        botId: r.botId,
-        timestamp: r.timestamp,
-        score: r._distance,
-      }));
-    } catch (err) {
-      console.error('❌ Hafıza arama hatası:', err.message);
-      return [];
-    }
+    const results = await this.table.search(queryVector).limit(limit).execute();
+    return results.map(r => ({
+      id: r.id,
+      text: r.text,
+      coordinates: r.coordinates,
+      botId: r.botId,
+      timestamp: r.timestamp,
+      score: r._distance
+    }));
   }
 
   async getMemoriesByCoords(x, y, z, radius = 10) {
     if (!this.initialized) await this.init();
-    try {
-      const all = await this.table.query().execute();
-      return all.filter((r) => {
-        const [cx, cy, cz] = r.coordinates.split(',').map(Number);
-        const dist = Math.sqrt((cx - x) ** 2 + (cy - y) ** 2 + (cz - z) ** 2);
-        return dist < radius;
-      });
-    } catch (err) {
-      console.error('❌ Koordinat sorgu hatası:', err.message);
-      return [];
-    }
+    const all = await this.table.query().execute();
+    return all.filter(r => {
+      const [cx, cy, cz] = r.coordinates.split(',').map(Number);
+      const dist = Math.sqrt((cx - x) ** 2 + (cy - y) ** 2 + (cz - z) ** 2);
+      return dist < radius;
+    });
   }
 
   async count() {
     if (!this.initialized) await this.init();
-    try {
-      const all = await this.table.query().execute();
-      return all.length;
-    } catch {
-      return 0;
-    }
+    const all = await this.table.query().execute();
+    return all.length;
   }
 }
 
