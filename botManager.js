@@ -14,20 +14,11 @@ const antiafk = require('mineflayer-antiafk');
 const guardPlugin = require('mineflayer-guard').plugin;
 const tpsPlugin = require('mineflayer-tps')(mineflayer);
 
-const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { pathfinder, movements, goals } = require('mineflayer-pathfinder');
 const { mineflayer: prismarineViewer } = require('prismarine-viewer');
 const Vec3 = require('vec3').Vec3;
 
 const TRASH_ITEMS = ['cobblestone', 'dirt', 'netherrack', 'gravel', 'wheat_seeds', 'short_grass', 'andesite', 'diorite', 'granite'];
-
-function getMcData(version) {
-  const mcDataLib = require('minecraft-data');
-  try {
-    return mcDataLib(version);
-  } catch (e) {
-    return mcDataLib('1.21.1') || mcDataLib('1.21') || mcDataLib('1.20.1');
-  }
-}
 
 class CompleteBotManager {
   constructor() {
@@ -35,15 +26,11 @@ class CompleteBotManager {
   }
 
   spawnBots(config) {
-    const { host, port, username, password, count = 1, version = '1.21.11', enableViewer = false, enableWebInventory = false, discordWebhook } = config;
+    const { host, port, username, password, count = 1, version = '1.21.11', enableViewer = false, enableWebInventory = true, discordWebhook } = config;
 
     for (let i = 1; i <= count; i++) {
       const botUsername = count === 1 ? username : `${username}_${i}`;
-      
-      // Temizlik: Var olan eski bot oturumu varsa sonlandır
-      if (this.bots.has(botUsername)) {
-        this.stopBots(botUsername);
-      }
+      if (this.bots.has(botUsername)) continue;
 
       this._createSingleBotInstance({
         host,
@@ -65,28 +52,23 @@ class CompleteBotManager {
       host: botConfig.host,
       port: botConfig.port,
       username: botConfig.username,
-      version: botConfig.version,
-      checkTimeoutInterval: 60000
+      version: botConfig.version
     });
 
-    // EKLENTİ YÜKLEMELERİ
-    try {
-      bot.loadPlugin(armorManager);
-      bot.loadPlugin(pathfinder);
-      bot.loadPlugin(autoEat);
-      bot.loadPlugin(toolPlugin);
-      bot.loadPlugin(collectBlockPlugin);
-      bot.loadPlugin(pvpPlugin);
-      bot.loadPlugin(hawkeye);
-      bot.loadPlugin(autoFish);
-      bot.loadPlugin(autocraft);
-      bot.loadPlugin(builder);
-      bot.loadPlugin(antiafk);
-      bot.loadPlugin(guardPlugin);
-      bot.loadPlugin(tpsPlugin);
-    } catch (e) {
-      console.error(`[Eklenti Yükleme Hatası - ${botConfig.username}]:`, e.message);
-    }
+    // TÜM EKLENTİLER
+    bot.loadPlugin(armorManager);
+    bot.loadPlugin(pathfinder);
+    bot.loadPlugin(autoEat);
+    bot.loadPlugin(toolPlugin);
+    bot.loadPlugin(collectBlockPlugin);
+    bot.loadPlugin(pvpPlugin);
+    bot.loadPlugin(hawkeye);
+    bot.loadPlugin(autoFish);
+    bot.loadPlugin(autocraft);
+    bot.loadPlugin(builder);
+    bot.loadPlugin(antiafk);
+    bot.loadPlugin(guardPlugin);
+    bot.loadPlugin(tpsPlugin);
 
     const botData = { instance: bot, config: botConfig, autoReconnect: true };
     this.bots.set(botConfig.username, botData);
@@ -95,12 +77,12 @@ class CompleteBotManager {
     bot.on('messagestr', (msg) => {
       if (msg.includes('/login')) bot.chat(`/login ${botConfig.password}`);
       if (msg.includes('/register')) bot.chat(`/register ${botConfig.password} ${botConfig.password}`);
-      if (msg.includes('TPA') || msg.includes('tpa')) bot.chat('/tpaccept');
+      if (msg.includes('TPA')) bot.chat('/tpaccept');
     });
 
     // AUTO-TOTEM (SOL ELE TAKMA)
     bot.on('health', async () => {
-      if (bot.health < 15 && bot.inventory) {
+      if (bot.health < 15) {
         const totem = bot.inventory.items().find(i => i.name === 'totem_of_undying');
         const offhandSlot = bot.inventory.slots[45];
         if (totem && (!offhandSlot || offhandSlot.name !== 'totem_of_undying')) {
@@ -115,19 +97,12 @@ class CompleteBotManager {
     });
 
     bot.on('spawn', () => {
-      console.log(`[Bot] ${bot.username} oyuna başarıyla bağlandı.`);
-      
-      const mcData = getMcData(bot.version);
-      if (mcData && bot.pathfinder) {
-        const defaultMove = new Movements(bot, mcData);
-        bot.pathfinder.setMovements(defaultMove);
-      }
+      console.log(`[Bot] ${bot.username} oyuna bağlandı.`);
+      const mcData = require('minecraft-data')(bot.version);
+      bot.pathfinder.setMovements(new movements(bot, mcData));
 
-      if (bot.autoEat && typeof bot.autoEat.enable === 'function') {
-        try { bot.autoEat.enable(); } catch (e) {}
-      }
+      if (bot.autoEat) bot.autoEat.enable();
 
-      // WEB ARAYÜZLERİ (Çökmeleri engellemek için izole edildi)
       if (botConfig.enableWebInventory) {
         try { inventoryViewer(bot, { port: botConfig.inventoryPort, startOpen: false }); } catch (e) {}
       }
@@ -136,17 +111,14 @@ class CompleteBotManager {
         try { prismarineViewer(bot, { port: botConfig.viewerPort, firstPerson: true }); } catch (err) {}
       }
 
-      this._sendDiscordAlert(botConfig.discordWebhook, `✅ **${bot.username}** sunucuya katıldı.`);
+      this._sendDiscordAlert(botConfig.discordWebhook, `✅ **${bot.username}** sunucuya başarıyla katıldı.`);
     });
 
     bot.on('end', (reason) => {
-      console.log(`[Bot] ${botConfig.username} ayrıldı. Sebep: ${reason}`);
-      bot.removeAllListeners();
+      console.log(`[Bot] ${botConfig.username} ayrıldı. Sebeb: ${reason}`);
       if (botData.autoReconnect) {
         setTimeout(() => {
-          if (this.bots.has(botConfig.username)) {
-            this._createSingleBotInstance(botConfig);
-          }
+          if (this.bots.has(botConfig.username)) this._createSingleBotInstance(botConfig);
         }, 5000);
       }
     });
@@ -164,12 +136,11 @@ class CompleteBotManager {
     return Array.from(this.bots.values()).map(b => b.instance);
   }
 
-  // --- OTONOM TEMİZLİK & SANDIK ---
+  // --- OTONOM ÇÖP TEMİZLEYİCİ ---
   async clearTrash(target = 'all') {
     const targetBots = this._getTargetBots(target);
     let totalDropped = 0;
     for (const bot of targetBots) {
-      if (!bot.inventory) continue;
       const itemsToDrop = bot.inventory.items().filter(item => TRASH_ITEMS.includes(item.name));
       for (const item of itemsToDrop) {
         try {
@@ -181,6 +152,7 @@ class CompleteBotManager {
     return `${targetBots.length} bot gereksiz çöp eşyaları attı (${totalDropped} slot temizlendi).`;
   }
 
+  // --- SANDIK BOŞALTMA ---
   async depositToChest(x, y, z, filterItems = [], target = 'all') {
     const targetBots = this._getTargetBots(target);
     let count = 0;
@@ -191,14 +163,14 @@ class CompleteBotManager {
         const chest = await bot.openContainer(chestBlock);
         for (const item of bot.inventory.items()) {
           if (filterItems.length === 0 || filterItems.includes(item.name)) {
-            try { await chest.deposit(item.type, null, item.count); } catch (e) {}
+            await chest.deposit(item.type, null, item.count);
           }
         }
         chest.close();
         count++;
       } catch (e) {}
     }
-    return `${count} bot (${x}, ${y}, ${z}) sandığına eşyaları aktardı.`;
+    return `${count} bot (${x}, ${y}, ${z}) sandığına eşyaları yatırdı.`;
   }
 
   // --- KAZMA & BLOK TOPLAMA ---
@@ -222,26 +194,24 @@ class CompleteBotManager {
     let success = 0;
     for (const bot of targetBots) {
       try {
-        const mcData = getMcData(bot.version);
+        const mcData = require('minecraft-data')(bot.version);
         const blockType = mcData.blocksByName[blockName];
         if (!blockType) continue;
         const blocks = bot.findBlocks({ matching: blockType.id, maxDistance: 15, count });
-        if (blocks.length > 0 && bot.collectBlock) {
+        if (blocks.length > 0) {
           const targets = blocks.map(p => bot.blockAt(p)).filter(Boolean);
           await bot.collectBlock.collect(targets);
           success++;
         }
       } catch (e) {}
     }
-    return `${success} bot ${count}x ${blockName} toplama görevini tamamladı.`;
+    return `${success} bot ${count}x ${blockName} topladı.`;
   }
 
-  // --- TEMEL EYLEMLER ---
+  // --- DİĞER TÜM TEMEL EYLEMLER ---
   async equipArmor(target = 'all') {
     const targetBots = this._getTargetBots(target);
-    for (const bot of targetBots) {
-      try { if (bot.armorManager) await bot.armorManager.equipAll(); } catch (e) {}
-    }
+    for (const bot of targetBots) { try { await bot.armorManager.equipAll(); } catch (e) {} }
     return `${targetBots.length} bot zırh giydi.`;
   }
 
@@ -258,29 +228,20 @@ class CompleteBotManager {
 
   followPlayer(username, target = 'all') {
     const targetBots = this._getTargetBots(target);
-    let count = 0;
     for (const bot of targetBots) {
       const p = bot.players[username]?.entity;
-      if (p && bot.pathfinder) {
-        bot.pathfinder.setGoal(new goals.GoalFollow(p, 2), true);
-        count++;
-      }
+      if (p) bot.pathfinder.setGoal(new goals.GoalFollow(p, 2), true);
     }
-    return `${count} bot '${username}' oyuncusunu takip ediyor.`;
+    return `${targetBots.length} bot '${username}' oyuncusunu takip ediyor.`;
   }
 
   attackEntity(entityName, target = 'all') {
     const targetBots = this._getTargetBots(target);
-    let count = 0;
     for (const bot of targetBots) {
       const e = bot.nearestEntity(ent => ent.name?.includes(entityName) || ent.username === entityName);
-      if (e) {
-        if (bot.pvp) bot.pvp.attack(e);
-        else bot.attack(e);
-        count++;
-      }
+      if (e) bot.pvp ? bot.pvp.attack(e) : bot.attack(e);
     }
-    return `${count} bot '${entityName}' hedefine saldırdı.`;
+    return `${targetBots.length} bot '${entityName}' hedefine saldırdı.`;
   }
 
   startAntiAfk(target = 'all') {
@@ -302,7 +263,7 @@ class CompleteBotManager {
       const p = bot.players[username]?.entity;
       if (p && bot.guard) { bot.guard.setPatrol(p.position, radius); count++; }
     }
-    return `${count} bot '${username}' çevresinde korumada.`;
+    return `${count} bot '${username}' çevresinde nöbette.`;
   }
 
   shootBow(targetUsername, weapon = 'bow', target = 'all') {
@@ -318,21 +279,21 @@ class CompleteBotManager {
   startFishing(target = 'all') {
     const targetBots = this._getTargetBots(target);
     targetBots.forEach(bot => { try { bot.fish(); } catch(e){} });
-    return `${targetBots.length} bot balık tutmaya başladı.`;
+    return `${targetBots.length} bot balık tutuyor.`;
   }
 
   async autoCraft(itemName, count = 1, target = 'all') {
     const targetBots = this._getTargetBots(target);
     for (const bot of targetBots) {
-      if (bot.autocraft) try { await bot.autocraft.craft(itemName, count); } catch (e) {}
+      if (bot.autocraft) await bot.autocraft.craft(itemName, count);
     }
     return `${targetBots.length} bot ${count}x ${itemName} üretti.`;
   }
 
   goToLocation(x, y, z, target = 'all') {
     const targetBots = this._getTargetBots(target);
-    targetBots.forEach(bot => bot.pathfinder && bot.pathfinder.setGoal(new goals.GoalBlock(x, y, z)));
-    return `${targetBots.length} bot koordinata ilerliyor.`;
+    targetBots.forEach(bot => bot.pathfinder.setGoal(new goals.GoalBlock(x, y, z)));
+    return `${targetBots.length} bot hedefe ilerliyor.`;
   }
 
   sendChat(message, target = 'all') {
@@ -343,18 +304,16 @@ class CompleteBotManager {
 
   stopBots(target = 'all') {
     if (target === 'all') {
-      for (const [name, botData] of this.bots) {
+      for (const [_, botData] of this.bots) {
         botData.autoReconnect = false;
-        botData.instance.removeAllListeners();
-        try { botData.instance.quit(); } catch (e) {}
+        botData.instance.quit();
       }
       this.bots.clear();
       return "Tüm botlar kapatıldı.";
     } else if (this.bots.has(target)) {
       const botData = this.bots.get(target);
       botData.autoReconnect = false;
-      botData.instance.removeAllListeners();
-      try { botData.instance.quit(); } catch (e) {}
+      botData.instance.quit();
       this.bots.delete(target);
       return `'${target}' kapatıldı.`;
     }
@@ -367,14 +326,11 @@ class CompleteBotManager {
       const b = botData.instance;
       list.push({
         username: name,
-        health: b.health || 0,
-        food: b.food || 0,
+        health: b.health,
+        food: b.food,
         tps: b.getTps ? b.getTps() : 20,
-        position: b.entity?.position ? {
-          x: Math.round(b.entity.position.x),
-          y: Math.round(b.entity.position.y),
-          z: Math.round(b.entity.position.z)
-        } : null,
+        position: b.entity?.position,
+        inventoryPort: botData.config.inventoryPort,
         heldItem: b.heldItem ? b.heldItem.name : 'Boş',
         inventory: b.inventory ? b.inventory.items().map(i => ({ name: i.name, count: i.count })) : []
       });
