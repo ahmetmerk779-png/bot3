@@ -1,7 +1,5 @@
-// dashboard.js
 const socket = io();
 
-// Bağlantı durumu
 socket.on('connect', () => {
   document.getElementById('connectionStatus').textContent = '✅ Bağlı';
   document.getElementById('connectionStatus').className = 'status-badge online';
@@ -11,7 +9,6 @@ socket.on('disconnect', () => {
   document.getElementById('connectionStatus').className = 'status-badge offline';
 });
 
-// Bot durumu güncellemesi
 socket.on('status', (data) => {
   if (!data.online) {
     document.getElementById('botName').textContent = 'Çevrimdışı';
@@ -25,7 +22,6 @@ socket.on('status', (data) => {
   document.getElementById('botMemory').textContent = data.memoryCount || 0;
 });
 
-// Sohbet/Log mesajları
 socket.on('chat_message', (msg) => {
   addLog(`${msg.username}: ${msg.message}`, 'chat');
 });
@@ -42,31 +38,22 @@ function addLog(text, type = 'system') {
   logArea.scrollTop = logArea.scrollHeight;
 }
 
-// ★ Botu Başlat (Ayarları gönder)
 async function startBot() {
   const host = document.getElementById('configHost').value.trim();
   const port = parseInt(document.getElementById('configPort').value) || 25565;
   const username = document.getElementById('configUsername').value.trim() || 'MegaBot';
   const apiKey = document.getElementById('configApiKey').value.trim();
 
-  if (!host) {
-    document.getElementById('configStatus').textContent = '❌ Lütfen sunucu adresini girin.';
-    return;
-  }
-  if (!apiKey) {
-    document.getElementById('configStatus').textContent = '❌ Groq API anahtarını girin.';
-    return;
-  }
+  if (!host) return document.getElementById('configStatus').textContent = '❌ Sunucu adresini girin.';
+  if (!apiKey) return document.getElementById('configStatus').textContent = '❌ Groq API anahtarını girin.';
 
   document.getElementById('configStatus').textContent = '⏳ Bot başlatılıyor...';
-
-  const response = await fetch('/api/config', {
+  const res = await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ host, port, username, apiKey })
   });
-
-  const data = await response.json();
+  const data = await res.json();
   if (data.success) {
     document.getElementById('configStatus').textContent = '✅ Bot başlatıldı!';
     addLog('🚀 Bot başlatıldı.', 'system');
@@ -75,24 +62,20 @@ async function startBot() {
   }
 }
 
-// Botu durdur
 async function stopBot() {
-  const response = await fetch('/api/stop', { method: 'POST' });
-  const data = await response.json();
+  const res = await fetch('/api/stop', { method: 'POST' });
+  const data = await res.json();
   if (data.success) {
     document.getElementById('configStatus').textContent = '⏹️ Bot durduruldu.';
     addLog('⏹️ Bot durduruldu.', 'system');
   }
 }
 
-// Komut Gönderme (artık ! işareti yok, doğal dil)
 function sendCommand(command) {
   fetch('/api/command', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ command })
-  }).then(res => res.json()).then(data => {
-    if (data.success) addLog(`📤 Komut gönderildi: ${command}`, 'system');
   });
 }
 
@@ -108,7 +91,6 @@ document.getElementById('commandInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') sendCustomCommand();
 });
 
-// Görsel yenileme
 function refreshVision() {
   const img = document.getElementById('visionImage');
   img.src = `/api/vision/latest?t=${Date.now()}`;
@@ -117,7 +99,6 @@ function refreshVision() {
   addLog('🖼️ Görsel yenilendi', 'system');
 }
 
-// Hafıza Ara
 async function searchMemory() {
   const query = document.getElementById('memoryQuery').value.trim();
   if (!query) return;
@@ -129,7 +110,7 @@ async function searchMemory() {
   const data = await res.json();
   const container = document.getElementById('memoryResults');
   container.innerHTML = '';
-  if (data.results.length === 0) {
+  if (!data.results || data.results.length === 0) {
     container.innerHTML = '<div>Sonuç bulunamadı.</div>';
     return;
   }
