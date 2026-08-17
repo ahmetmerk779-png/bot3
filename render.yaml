@@ -7,11 +7,4 @@ services:
     envVars:
       - key: PORT
         value: 3000
-    disk:
-      - name: vectordb
-        mountPath: /opt/render/project/src/vectordb
-        sizeGB: 1
-      - name: temp_vision
-        mountPath: /opt/render/project/src/temp_vision
-        sizeGB: 1
     healthCheckPath: /api/status
