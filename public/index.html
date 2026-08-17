@@ -3,263 +3,158 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mineflayer Otonom Bot Paneli</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Mineflayer Dashboard</title>
   <style>
-    body { background-color: #0f172a; color: #f8fafc; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #121212; color: #e0e0e0; padding: 15px; }
+    h1, h2 { color: #fff; margin-bottom: 12px; }
+    .container { display: grid; grid-template-columns: 1fr; gap: 15px; max-width: 1200px; margin: 0 auto; }
+    @media(min-width: 768px) { .container { grid-template-columns: 1fr 1fr; } }
+    .card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 15px; }
+    .form-group { margin-bottom: 10px; }
+    label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; }
+    input { width: 100%; padding: 8px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 4px; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    button { background: #007bff; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; flex: 1; min-width: 100px; }
+    button:hover { opacity: 0.9; }
+    button.danger { background: #dc3545; }
+    button.warning { background: #ffc107; color: #000; }
+    button.success { background: #28a745; }
+    iframe { width: 100%; height: 350px; border: 1px solid #333; border-radius: 4px; background: #000; }
+    .status-box { background: #111; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; max-height: 150px; overflow-y: auto; }
   </style>
 </head>
-<body class="p-3 md:p-6 text-sm">
-  <div class="max-w-7xl mx-auto space-y-6">
+<body>
+
+  <h1>🎮 Mineflayer Kontrol Paneli</h1>
+
+  <div class="container">
     
-    <!-- Üst Bar -->
-    <div class="flex flex-wrap justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 gap-4">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">🤖</span>
-        <div>
-          <h1 class="text-lg font-bold text-emerald-400">Mineflayer Bot Kontrol Paneli</h1>
-          <p class="text-xs text-slate-400">Prismarine Viewer Entegre Otonom Yönetim</p>
-        </div>
+    <!-- Bot Bağlantı Paneli -->
+    <div class="card">
+      <h2>🚀 Bot Başlat</h2>
+      <div class="form-group">
+        <label>Sunucu Adresi (Host)</label>
+        <input type="text" id="host" value="localhost">
       </div>
-      <div class="flex gap-2">
-        <button onclick="fetchStatus()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-semibold">
-          🔄 Durumu Yenile
-        </button>
-        <button onclick="sendApi('/api/stop', {})" class="bg-rose-600 hover:bg-rose-500 px-3 py-2 rounded-lg text-xs font-bold text-white">
-          🛑 Tüm Botları Kapat
-        </button>
+      <div class="form-group">
+        <label>Port</label>
+        <input type="number" id="port" value="25565">
+      </div>
+      <div class="form-group">
+        <label>Kullanıcı Adı</label>
+        <input type="text" id="username" value="Bot1">
+      </div>
+      <div class="form-group">
+        <label>Sürüm</label>
+        <input type="text" id="version" value="1.21.11">
+      </div>
+      <div class="form-group">
+        <label>Bot Sayısı</label>
+        <input type="number" id="count" value="1">
+      </div>
+      <div class="btn-group">
+        <button class="success" onclick="spawnBot()">Başlat</button>
+        <button class="danger" onclick="stopAll()">Tümünü Durdur</button>
       </div>
     </div>
 
-    <!-- Ana Panel Izgarası -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Hızlı Eylemler & Komutlar -->
+    <div class="card">
+      <h2>⚡ Kontrol Komutları</h2>
       
-      <!-- SOL SÜTUN: Bağlantı & Otomasyon -->
-      <div class="space-y-6">
-        
-        <!-- Bot Başlatma Formu -->
-        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
-          <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">🚀 Sunucuya Bağlan</h2>
-          <div>
-            <label class="block text-xs mb-1 text-slate-300">Sunucu IP / Host</label>
-            <input id="host" type="text" placeholder="play.example.com" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none focus:border-indigo-500">
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs mb-1 text-slate-300">Port</label>
-              <input id="port" type="number" value="25565" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
-            </div>
-            <div>
-              <label class="block text-xs mb-1 text-slate-300">Sürüm</label>
-              <input id="version" type="text" value="1.21.11" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs mb-1 text-slate-300">Kullanıcı Adı</label>
-            <input id="username" type="text" placeholder="Bot_Adı" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs mb-1 text-slate-300">Şifre</label>
-              <input id="password" type="password" value="Sifre12345" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
-            </div>
-            <div>
-              <label class="block text-xs mb-1 text-slate-300">Bot Sayısı</label>
-              <input id="count" type="number" value="1" min="1" max="10" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
-            </div>
-          </div>
-          <button onclick="spawnBots()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg transition-all text-xs">
-            ⚡ Botları Başlat
-          </button>
-        </div>
-
-        <!-- Hızlı Eylemler & Otomasyon -->
-        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
-          <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider">🛠️ Otomasyon</h2>
-          <div class="grid grid-cols-2 gap-2">
-            <button onclick="sendApi('/api/trash/clear', {})" class="bg-slate-700 hover:bg-slate-600 p-2.5 rounded-lg text-xs font-medium">🗑️ Çöp Temizle</button>
-            <button onclick="sendApi('/api/equip-armor', {})" class="bg-slate-700 hover:bg-slate-600 p-2.5 rounded-lg text-xs font-medium">🛡️ Zırh Giydir</button>
-            <button onclick="sendApi('/api/afk/start', {})" class="bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 p-2.5 rounded-lg text-xs text-emerald-300 font-medium">🌀 Anti-AFK Aç</button>
-            <button onclick="sendApi('/api/afk/stop', {})" class="bg-rose-900/40 hover:bg-rose-900/60 border border-rose-700 p-2.5 rounded-lg text-xs text-rose-300 font-medium">⛔ Anti-AFK Kapat</button>
-          </div>
-        </div>
-
-        <!-- Sohbet Gönderme -->
-        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
-          <h2 class="text-sm font-bold text-sky-400 uppercase tracking-wider">💬 Sohbet / Komut</h2>
-          <div class="flex gap-2">
-            <input id="chatMsg" type="text" placeholder="Mesaj veya /komut..." class="flex-1 bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
-            <button onclick="sendChat()" class="bg-sky-600 hover:bg-sky-500 px-4 py-2 rounded-lg text-xs font-bold">Gönder</button>
-          </div>
-        </div>
-
+      <div class="form-group">
+        <label>Sohbet Mesajı / Komut</label>
+        <input type="text" id="chatMsg" placeholder="/login şifre veya mesaj...">
       </div>
+      <button onclick="sendChat()">Gönder</button>
 
-      <!-- ORTA SÜTUN: ÖZEL PRISMARINE VIEWER & KOORDİNAT BÖLÜMÜ -->
-      <div class="space-y-6">
-        
-        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
-          <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-            <h2 class="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-              <span>👁️</span> Prismarine Viewer & 3D Kontrol
-            </h2>
-            <span class="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">3D Viewport</span>
-          </div>
+      <hr style="border-color: #333; margin: 15px 0;">
 
-          <!-- Canlı 3D Ekran -->
-          <div class="w-full h-64 bg-slate-950 rounded-lg overflow-hidden border border-slate-700 relative">
-            <iframe id="viewerFrame" src="/viewer" class="w-full h-full border-0"></iframe>
-            <div class="absolute inset-0 flex items-center justify-center text-xs text-slate-500 pointer-events-none -z-10">
-              Prismarine Viewer Aktif Değil veya Yükleniyor...
-            </div>
-          </div>
-
-          <!-- PRISMARINE İÇİNDEKİ KOORDİNAT & HAREKET KONTROLLERİ -->
-          <div class="bg-slate-900/80 p-4 rounded-lg border border-slate-700/70 space-y-3">
-            <h3 class="text-xs font-bold text-purple-400 uppercase">📍 3D Harita & Pathfinding Kontrolü</h3>
-            
-            <!-- Koordinata Yürüme -->
-            <div>
-              <label class="block text-[11px] mb-1 text-slate-400">Hedef Koordinatlar (X, Y, Z)</label>
-              <div class="grid grid-cols-3 gap-2 mb-2">
-                <input id="coordX" type="number" placeholder="X" class="bg-slate-950 border border-slate-700 p-2 rounded text-xs text-center outline-none focus:border-purple-500">
-                <input id="coordY" type="number" placeholder="Y" class="bg-slate-950 border border-slate-700 p-2 rounded text-xs text-center outline-none focus:border-purple-500">
-                <input id="coordZ" type="number" placeholder="Z" class="bg-slate-950 border border-slate-700 p-2 rounded text-xs text-center outline-none focus:border-purple-500">
-              </div>
-              <button onclick="gotoCoords()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-lg text-xs transition-all">
-                🚶‍♂️ Bu Koordinata Yürü (Pathfinding)
-              </button>
-            </div>
-
-            <!-- Oyuncu Takip / Saldırı -->
-            <div class="pt-2 border-t border-slate-800">
-              <label class="block text-[11px] mb-1 text-slate-400">Görüş Alanındaki Oyuncuyu Hedefle</label>
-              <div class="flex gap-2">
-                <input id="targetUser" type="text" placeholder="Oyuncu Adı" class="flex-1 bg-slate-950 border border-slate-700 p-2 rounded text-xs outline-none focus:border-purple-500">
-                <button onclick="sendApi('/api/follow', { username: document.getElementById('targetUser').value })" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded text-xs">Takip</button>
-                <button onclick="sendApi('/api/attack', { entityName: document.getElementById('targetUser').value })" class="bg-rose-600 hover:bg-rose-500 px-3 py-2 rounded text-xs">Saldır</button>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
+      <div class="form-group">
+        <label>Takip Et (Oyuncu Adı)</label>
+        <input type="text" id="followUser" placeholder="Oyuncu adı">
       </div>
+      <button onclick="followUser()">Takip Et</button>
 
-      <!-- SAĞ SÜTUN: Bot Durumu & Konsol -->
-      <div class="space-y-6">
-        
-        <!-- Bot Durum Bilgileri -->
-        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
-          <h2 class="text-sm font-bold text-sky-400 uppercase tracking-wider">📊 Bot Durumları</h2>
-          <div id="botList" class="space-y-3 max-h-[220px] overflow-y-auto pr-1">
-            <p class="text-xs text-slate-500">Aktif bot yok veya veri bekleniyor...</p>
-          </div>
-        </div>
+      <hr style="border-color: #333; margin: 15px 0;">
 
-        <!-- Canlı Konsol Logları -->
-        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
-          <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider">📄 Canlı Konsol Logları</h2>
-          <div id="logs" class="w-full h-56 bg-slate-950 p-3 rounded-lg font-mono text-[11px] text-slate-300 overflow-y-auto space-y-1 border border-slate-800">
-            <div>[SİSTEM] Panel hazır. Sistem bekleniyor...</div>
-          </div>
-        </div>
-
+      <div class="btn-group">
+        <button class="warning" onclick="startAfk()">Anti-AFK Başlat</button>
+        <button class="danger" onclick="stopAfk()">Anti-AFK Durdur</button>
+        <button onclick="clearTrash()">Çöp Temizle</button>
+        <button onclick="equipArmor()">Zırh Giydir</button>
       </div>
-
     </div>
+
+    <!-- 3D Görünüm (Prismarine Viewer Proxy) -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>👁️ 3D Canlı Görünüm</h2>
+      <iframe src="/viewer" id="viewerFrame"></iframe>
+      <button style="margin-top: 10px;" onclick="document.getElementById('viewerFrame').src='/viewer'">Yenile</button>
+    </div>
+
+    <!-- Bot Durumu -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>📊 Bot Durumları</h2>
+      <button style="margin-bottom: 10px;" onclick="fetchStatus()">Durumu Güncelle</button>
+      <div class="status-box" id="statusOutput">Aktif bot yok veya veri yüklenmedi.</div>
+    </div>
+
   </div>
 
   <script>
-    function log(msg) {
-      const container = document.getElementById('logs');
-      const time = new Date().toLocaleTimeString();
-      const div = document.createElement('div');
-      div.className = "border-b border-slate-900/50 pb-0.5";
-      div.innerHTML = `<span class="text-slate-500">[${time}]</span> ${msg}`;
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
-    }
-
-    async function fetchStatus() {
+    async function apiPost(endpoint, body = {}) {
       try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        const container = document.getElementById('botList');
-        
-        if (!data.bots || data.bots.length === 0) {
-          container.innerHTML = '<p class="text-xs text-slate-500">Aktif bot yok.</p>';
-          return;
-        }
-
-        container.innerHTML = data.bots.map(b => `
-          <div class="bg-slate-900 p-3 rounded-lg border border-slate-700/60 space-y-1 text-xs">
-            <div class="flex justify-between items-center font-bold text-emerald-400">
-              <span>${b.username}</span>
-              <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">TPS: ${b.tps || '20'}</span>
-            </div>
-            <div class="text-slate-300">❤️ Can: ${b.health ?? '-'} / 20 | 🍗 Açlık: ${b.food ?? '-'} / 20</div>
-            <div class="text-slate-400 text-[11px]">📍 X: ${b.position?.x ?? 0}, Y: ${b.position?.y ?? 0}, Z: ${b.position?.z ?? 0}</div>
-            <div class="text-slate-400 text-[11px]">✋ Elinde: ${b.heldItem || 'Boş'}</div>
-          </div>
-        `).join('');
-      } catch (e) {}
-    }
-
-    async function spawnBots() {
-      const body = {
-        host: document.getElementById('host').value,
-        port: parseInt(document.getElementById('port').value),
-        username: document.getElementById('username').value,
-        password: document.getElementById('password').value,
-        version: document.getElementById('version').value,
-        count: parseInt(document.getElementById('count').value)
-      };
-      log(`Botlar başlatılıyor: ${body.username} (${body.count} adet)...`);
-      await sendApi('/api/spawn', body);
-      setTimeout(fetchStatus, 3000);
-    }
-
-    async function sendChat() {
-      const msg = document.getElementById('chatMsg').value;
-      if (!msg) return;
-      log(`Sohbet gönderiliyor: ${msg}`);
-      await sendApi('/api/chat', { message: msg });
-      document.getElementById('chatMsg').value = '';
-    }
-
-    async function gotoCoords() {
-      const x = parseFloat(document.getElementById('coordX').value);
-      const y = parseFloat(document.getElementById('coordY').value);
-      const z = parseFloat(document.getElementById('coordZ').value);
-      
-      if (isNaN(x) || isNaN(y) || isNaN(z)) {
-        alert('Lütfen geçerli X, Y, Z koordinatları girin!');
-        return;
-      }
-      log(`3D Viewport Hedefi: X:${x}, Y:${y}, Z:${z}`);
-      await sendApi('/api/goto', { x, y, z });
-    }
-
-    async function sendApi(url, body) {
-      try {
-        const res = await fetch(url, {
+        const res = await fetch(`/api/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
         const data = await res.json();
-        log(`API Yanıtı: ${data.message || 'Başarılı'}`);
+        alert(data.message || 'İşlem Başarılı');
         fetchStatus();
-      } catch (e) {
-        log(`❌ Hata: ${url} çağrısı başarısız.`);
+      } catch (err) {
+        alert('Hata: ' + err.message);
       }
     }
 
-    setInterval(fetchStatus, 4000);
-    fetchStatus();
+    function spawnBot() {
+      apiPost('spawn', {
+        host: document.getElementById('host').value,
+        port: document.getElementById('port').value,
+        username: document.getElementById('username').value,
+        version: document.getElementById('version').value,
+        count: parseInt(document.getElementById('count').value)
+      });
+    }
+
+    function stopAll() { apiPost('stop'); }
+    function sendChat() { apiPost('chat', { message: document.getElementById('chatMsg').value }); }
+    function followUser() { apiPost('follow', { username: document.getElementById('followUser').value }); }
+    function startAfk() { apiPost('afk/start'); }
+    function stopAfk() { apiPost('afk/stop'); }
+    function clearTrash() { apiPost('trash/clear'); }
+    function equipArmor() { apiPost('equip-armor'); }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const box = document.getElementById('statusOutput');
+        if (!data.bots || data.bots.length === 0) {
+          box.innerHTML = 'Aktif bot yok.';
+          return;
+        }
+        box.innerHTML = data.bots.map(b => 
+          `🤖 <b>${b.username}</b> | Can: ${b.health} | Açlık: ${b.food} | POS: ${b.position ? `${b.position.x}, ${b.position.y}, ${b.position.z}` : 'Bilinmiyor'} | Elinde: ${b.heldItem}`
+        ).join('<br>');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setInterval(fetchStatus, 5000);
   </script>
 </body>
-  </html>
+</html>
