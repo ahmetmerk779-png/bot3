@@ -10,7 +10,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// RENDER UYANIK TUTMA (SELF-PING - 10 dakikada bir tetiklenir)
+// RENDER UYANIK TUTMA (SELF-PING)
 const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
 if (RENDER_EXTERNAL_URL) {
   setInterval(() => {
@@ -18,52 +18,57 @@ if (RENDER_EXTERNAL_URL) {
   }, 10 * 60 * 1000);
 }
 
-// TELEGRAM BOT ENTEGRASYONU
+// TELEGRAM BOT ENTEGRASYONU (Çökme Korumalı)
 if (process.env.TELEGRAM_TOKEN) {
-  const tBot = new Telegraf(process.env.TELEGRAM_TOKEN);
+  try {
+    const tBot = new Telegraf(process.env.TELEGRAM_TOKEN);
 
-  tBot.command('durum', (ctx) => {
-    const bots = botManager.getBotStatus();
-    if (bots.length === 0) return ctx.reply("Aktif bot bulunmuyor.");
-    let msg = "🤖 **BOT STATUS OVERVIEW**\n";
-    bots.forEach(b => {
-      msg += `• **${b.username}** | Can: ${b.health} | TPS: ${b.tps} | X: ${Math.round(b.position?.x || 0)} Z: ${Math.round(b.position?.z || 0)}\n`;
+    tBot.command('durum', (ctx) => {
+      const bots = botManager.getBotStatus();
+      if (bots.length === 0) return ctx.reply("Aktif bot bulunmuyor.");
+      let msg = "🤖 **BOT STATUS OVERVIEW**\n";
+      bots.forEach(b => {
+        const pos = b.position ? `X: ${b.position.x} Y: ${b.position.y} Z: ${b.position.z}` : 'Bilinmiyor';
+        msg += `• **${b.username}** | Can: ${b.health} | TPS: ${b.tps} | ${pos}\n`;
+      });
+      ctx.replyWithMarkdown(msg);
     });
-    ctx.replyWithMarkdown(msg);
-  });
 
-  tBot.command('mesaj', (ctx) => {
-    const text = ctx.message.text.split(' ').slice(1).join(' ');
-    if (!text) return ctx.reply("Kullanım: /mesaj <yazı>");
-    botManager.sendChat(text);
-    ctx.reply(`Sohbete iletildi: ${text}`);
-  });
+    tBot.command('mesaj', (ctx) => {
+      const text = ctx.message.text.split(' ').slice(1).join(' ');
+      if (!text) return ctx.reply("Kullanım: /mesaj <yazı>");
+      botManager.sendChat(text);
+      ctx.reply(`Sohbete iletildi: ${text}`);
+    });
 
-  tBot.command('saldir', (ctx) => {
-    const target = ctx.message.text.split(' ')[1];
-    if (target) {
-      botManager.attackEntity(target);
-      ctx.reply(`${target} hedefine saldırı emri verildi.`);
-    }
-  });
+    tBot.command('saldir', (ctx) => {
+      const target = ctx.message.text.split(' ')[1];
+      if (target) {
+        botManager.attackEntity(target);
+        ctx.reply(`${target} hedefine saldırı emri verildi.`);
+      }
+    });
 
-  tBot.command('takip', (ctx) => {
-    const target = ctx.message.text.split(' ')[1];
-    if (target) {
-      botManager.followPlayer(target);
-      ctx.reply(`${target} takibe alındı.`);
-    }
-  });
+    tBot.command('takip', (ctx) => {
+      const target = ctx.message.text.split(' ')[1];
+      if (target) {
+        botManager.followPlayer(target);
+        ctx.reply(`${target} takibe alındı.`);
+      }
+    });
 
-  tBot.command('cop', async (ctx) => {
-    const msg = await botManager.clearTrash();
-    ctx.reply(msg);
-  });
+    tBot.command('cop', async (ctx) => {
+      const msg = await botManager.clearTrash();
+      ctx.reply(msg);
+    });
 
-  tBot.launch();
+    tBot.launch().catch(err => console.error('[Telegram Error]:', err.message));
+  } catch (e) {
+    console.error('[Telegram Init Error]:', e.message);
+  }
 }
 
-// EXTREME REST API ENDPOINTS (TÜM İŞLEVLER)
+// REST API ENDPOINTS
 app.get('/health', (req, res) => res.status(200).send('OK - Alive'));
 
 app.post('/api/spawn', (req, res) => {
@@ -142,6 +147,13 @@ app.post('/api/chat', (req, res) => {
 
 app.get('/api/status', (req, res) => res.json({ bots: botManager.getBotStatus() }));
 app.post('/api/stop', (req, res) => res.json({ success: true, message: botManager.stopBots(req.body.botName || 'all') }));
+
+// SUNUCU KAPANIRKEN BOTLARI GÜVENLİ KAPATMA
+process.on('SIGINT', () => {
+  console.log('[Sistem] Sunucu kapatılıyor, botlar ayrılıyor...');
+  botManager.stopBots('all');
+  process.exit(0);
+});
 
 app.listen(PORT, () => {
   console.log(`[API] Ekstrem Birleşik Bot Sistemi ${PORT} Portunda Aktif.`);
