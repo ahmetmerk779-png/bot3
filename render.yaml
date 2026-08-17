@@ -7,10 +7,20 @@ services:
     envVars:
       - key: GROQ_API_KEY
         sync: false
+      - key: MC_HOST
+        value: your.proxy.server.com
+      - key: MC_PORT
+        value: 25565
+      - key: MC_USERNAME
+        value: MegaBot
       - key: PORT
         value: 3000
     disk:
       name: bot-data
+      mountPath: /opt/render/project/src/vectordb
+      sizeGB: 1
+    disk2:
+      name: vision-data
       mountPath: /opt/render/project/src/temp_vision
       sizeGB: 1
     healthCheckPath: /api/status
