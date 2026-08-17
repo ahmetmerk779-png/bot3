@@ -1,3 +1,4 @@
+// src/web/server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -7,50 +8,52 @@ const fs = require('fs');
 const Logger = require('../utils/Logger');
 
 class WebServer {
-  constructor(botClient, swarmManager, planner) {
+  constructor(botManager) {
     this.app = express();
-    this.bot = botClient;
-    this.swarm = swarmManager;
-    this.planner = planner;
+    this.botManager = botManager; // Bot'u başlatma/durdurma yetkisi
     this.port = process.env.PORT || 3000;
 
     this.app.use(cors());
     this.app.use(express.json());
     this.app.use(express.static(path.join(__dirname, 'public')));
 
-    // API: Bot durumu
-    this.app.get('/api/status', (req, res) => {
-      res.json(this.bot.getStatus());
-    });
-
-    // API: Sunucu ayarlarını güncelle (botu yeniden bağla)
-    this.app.post('/api/connect', express.json(), (req, res) => {
-      const { username, host, port } = req.body;
-      if (!username || !host || !port) {
-        return res.status(400).json({ error: 'Eksik bilgi' });
+    // API: Konfigürasyon gönder (Botu başlat)
+    this.app.post('/api/config', async (req, res) => {
+      const { host, port, username, apiKey } = req.body;
+      if (!host || !apiKey) {
+        return res.status(400).json({ success: false, error: 'Host ve API anahtarı zorunlu.' });
       }
       try {
-        this.bot.disconnect();
-        this.bot.connect(username, host, port);
-        res.json({ success: true, message: `Bot ${username} bağlanıyor...` });
+        await this.botManager.startBot({ host, port, username, apiKey });
+        res.json({ success: true });
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ success: false, error: err.message });
       }
     });
 
-    // API: Komut gönder (doğal dil)
-    this.app.post('/api/command', express.json(), async (req, res) => {
+    // API: Botu durdur
+    this.app.post('/api/stop', async (req, res) => {
+      try {
+        await this.botManager.stopBot();
+        res.json({ success: true });
+      } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+      }
+    });
+
+    // API: Komut gönder
+    this.app.post('/api/command', async (req, res) => {
       const { command } = req.body;
       if (!command) return res.status(400).json({ error: 'Komut gerekli' });
       try {
-        await this.planner.executeGoal(command);
-        res.json({ success: true, message: `Komut alındı: ${command}` });
+        await this.botManager.sendCommand(command);
+        res.json({ success: true });
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ success: false, error: err.message });
       }
     });
 
-    // API: Görsel hafıza
+    // API: Görsel
     this.app.get('/api/vision/latest', (req, res) => {
       const dir = path.join(__dirname, '../../temp_vision');
       if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Görsel yok' });
@@ -59,42 +62,58 @@ class WebServer {
       res.sendFile(path.join(dir, files[0]));
     });
 
-    // HTTP + Socket.io
+    // API: Bot durumu
+    this.app.get('/api/status', (req, res) => {
+      const status = this.botManager.getStatus();
+      res.json(status);
+    });
+
+    // API: Hafıza ara
+    this.app.post('/api/memory/search', express.json(), async (req, res) => {
+      const { query } = req.body;
+      if (!query) return res.status(400).json({ error: 'Sorgu gerekli' });
+      try {
+        const results = await this.botManager.searchMemory(query);
+        res.json({ results });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Socket.io
     this.server = http.createServer(this.app);
     this.io = socketIo(this.server, {
       cors: { origin: '*', methods: ['GET', 'POST'] },
       transports: ['websocket', 'polling']
     });
 
-    this.setupSocket();
+    this.setupSocketEvents();
   }
 
-  setupSocket() {
+  setupSocketEvents() {
     this.io.on('connection', (socket) => {
-      Logger.info('🟢 Dashboard bağlandı');
-      socket.emit('status', this.bot.getStatus());
+      Logger.info(`🟢 Dashboard bağlandı: ${socket.id}`);
+      socket.emit('status', this.botManager.getStatus());
 
       const interval = setInterval(() => {
-        socket.emit('status', this.bot.getStatus());
-      }, 3000);
-
-      // Bot sohbet mesajlarını dashboard'a gönder
-      const chatHandler = (username, message) => {
-        socket.emit('chat_message', { username, message, timestamp: Date.now() });
-      };
-      this.bot.on('chat', chatHandler);
+        socket.emit('status', this.botManager.getStatus());
+      }, 5000);
 
       socket.on('disconnect', () => {
-        this.bot.removeListener('chat', chatHandler);
         clearInterval(interval);
-        Logger.info('🔴 Dashboard ayrıldı');
+        Logger.info(`🔴 Dashboard ayrıldı: ${socket.id}`);
       });
     });
   }
 
+  // Log broadcast
+  broadcastLog(level, message) {
+    this.io.emit('log', { level, message, timestamp: Date.now() });
+  }
+
   start() {
     this.server.listen(this.port, () => {
-      Logger.success(`🌐 Dashboard: http://localhost:${this.port}`);
+      Logger.success(`🌐 Web Dashboard: http://localhost:${this.port}`);
     });
   }
 }
