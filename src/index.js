@@ -4,7 +4,7 @@ const BotManager = require('./core/BotManager');
 const Logger = require('./utils/Logger');
 
 async function main() {
-  Logger.info('🚀 Mega Bot Dashboard Başlatılıyor...');
+  Logger.info('🚀 Bot Dashboard Başlatılıyor...');
   const botManager = new BotManager();
   const webServer = new WebServer(botManager);
   webServer.start();
