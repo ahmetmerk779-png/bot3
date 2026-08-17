@@ -1,5 +1,3 @@
 .env
 node_modules/
-vectordb/
-temp_vision/
 *.log
