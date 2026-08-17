@@ -2,26 +2,19 @@ const BotClient = require('./BotClient');
 const LLMClient = require('./LLMClient');
 const TaskPlanner = require('./TaskPlanner');
 const MinecraftServer = require('../mcp/MinecraftServer');
-const SwarmManager = require('./SwarmManager');
 const Logger = require('../utils/Logger');
 
 class BotManager {
   constructor() {
     this.bot = null;
     this.planner = null;
-    this.swarm = null;
     this.mcpServer = null;
     this.isRunning = false;
-    this.config = null;
   }
 
   async startBot(config) {
     if (this.isRunning) throw new Error('Bot zaten çalışıyor.');
-    this.config = config;
     Logger.info(`🚀 Bot başlatılıyor: ${config.username} -> ${config.host}:${config.port}`);
-
-    this.swarm = new SwarmManager();
-    await this.swarm.init();
 
     this.bot = new BotClient({
       host: config.host,
@@ -29,13 +22,12 @@ class BotManager {
       username: config.username,
     });
     await this.bot.start();
-    this.swarm.registerBot(this.bot);
 
     this.mcpServer = new MinecraftServer(this.bot);
     await this.mcpServer.start();
 
     const llmClient = new LLMClient(config.apiKey);
-    this.planner = new TaskPlanner(this.bot, llmClient, this.mcpServer, this.swarm);
+    this.planner = new TaskPlanner(this.bot, llmClient, this.mcpServer);
 
     this.bot.on('chat', async (username, message) => {
       if (username === this.bot.username) return;
@@ -47,16 +39,8 @@ class BotManager {
         }
         return;
       }
-      await this.planner.executeGoalWithMCP(message, { sender: username });
+      await this.planner.executeGoal(message, { sender: username });
     });
-
-    setInterval(async () => {
-      if (this.bot && this.bot.entity) {
-        try {
-          await this.swarm.memorizeEnvironment(this.bot);
-        } catch (e) {}
-      }
-    }, 30000);
 
     this.isRunning = true;
     Logger.success('✅ Bot başarıyla başlatıldı.');
@@ -71,7 +55,6 @@ class BotManager {
     }
     this.planner = null;
     this.mcpServer = null;
-    this.swarm = null;
     this.isRunning = false;
     Logger.success('✅ Bot durduruldu.');
   }
@@ -93,14 +76,7 @@ class BotManager {
       health: Math.round(this.bot.entity.health),
       food: Math.round(this.bot.entity.food),
       isProcessing: this.planner ? this.planner.isExecuting : false,
-      memoryCount: this.swarm ? await this.swarm.memory.count() : 0
     };
-  }
-
-  async searchMemory(query) {
-    if (!this.swarm) return [];
-    const all = await this.swarm.memory.table.query().execute();
-    return all.filter(r => r.text.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
   }
 }
 
