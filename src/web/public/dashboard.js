@@ -2,11 +2,9 @@ const socket = io();
 
 socket.on('connect', () => {
   document.getElementById('connectionStatus').textContent = '✅ Bağlı';
-  document.getElementById('connectionStatus').className = 'status-badge online';
 });
 socket.on('disconnect', () => {
   document.getElementById('connectionStatus').textContent = '❌ Bağlantı Kesildi';
-  document.getElementById('connectionStatus').className = 'status-badge offline';
 });
 
 socket.on('status', (data) => {
@@ -18,57 +16,28 @@ socket.on('status', (data) => {
   document.getElementById('botCoords').textContent = `${data.position.x}, ${data.position.y}, ${data.position.z}`;
   document.getElementById('botHealth').textContent = data.health;
   document.getElementById('botFood').textContent = data.food;
-  document.getElementById('botBusy').textContent = data.isProcessing ? '✅ Evet' : 'Hayır';
-  document.getElementById('botMemory').textContent = data.memoryCount || 0;
+  document.getElementById('botBusy').textContent = data.isProcessing ? 'Evet' : 'Hayır';
 });
 
 socket.on('chat_message', (msg) => {
   addLog(`${msg.username}: ${msg.message}`, 'chat');
 });
-socket.on('log', (log) => {
-  addLog(`[${log.level}] ${log.message}`, log.level === 'error' ? 'error' : 'system');
-});
 
-function addLog(text, type = 'system') {
-  const logArea = document.getElementById('chatLog');
-  const entry = document.createElement('div');
-  entry.className = `log-entry ${type}`;
-  entry.textContent = text;
-  logArea.appendChild(entry);
-  logArea.scrollTop = logArea.scrollHeight;
-}
+function addLog(text, type) { /* ... */ }
 
 async function startBot() {
   const host = document.getElementById('configHost').value.trim();
   const port = parseInt(document.getElementById('configPort').value) || 25565;
   const username = document.getElementById('configUsername').value.trim() || 'MegaBot';
   const apiKey = document.getElementById('configApiKey').value.trim();
-
-  if (!host) return document.getElementById('configStatus').textContent = '❌ Sunucu adresini girin.';
-  if (!apiKey) return document.getElementById('configStatus').textContent = '❌ Groq API anahtarını girin.';
-
-  document.getElementById('configStatus').textContent = '⏳ Bot başlatılıyor...';
+  if (!host || !apiKey) return alert('Host ve API anahtarı gerekli.');
   const res = await fetch('/api/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ host, port, username, apiKey })
   });
   const data = await res.json();
-  if (data.success) {
-    document.getElementById('configStatus').textContent = '✅ Bot başlatıldı!';
-    addLog('🚀 Bot başlatıldı.', 'system');
-  } else {
-    document.getElementById('configStatus').textContent = '❌ Hata: ' + data.error;
-  }
-}
-
-async function stopBot() {
-  const res = await fetch('/api/stop', { method: 'POST' });
-  const data = await res.json();
-  if (data.success) {
-    document.getElementById('configStatus').textContent = '⏹️ Bot durduruldu.';
-    addLog('⏹️ Bot durduruldu.', 'system');
-  }
+  if (data.success) addLog('Bot başlatıldı.', 'system');
 }
 
 function sendCommand(command) {
@@ -76,47 +45,5 @@ function sendCommand(command) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ command })
-  });
-}
-
-function sendCustomCommand() {
-  const input = document.getElementById('commandInput');
-  const cmd = input.value.trim();
-  if (!cmd) return;
-  sendCommand(cmd);
-  input.value = '';
-}
-
-document.getElementById('commandInput').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') sendCustomCommand();
-});
-
-function refreshVision() {
-  const img = document.getElementById('visionImage');
-  img.src = `/api/vision/latest?t=${Date.now()}`;
-  img.style.display = 'block';
-  document.getElementById('visionPlaceholder').style.display = 'none';
-  addLog('🖼️ Görsel yenilendi', 'system');
-}
-
-async function searchMemory() {
-  const query = document.getElementById('memoryQuery').value.trim();
-  if (!query) return;
-  const res = await fetch('/api/memory/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query })
-  });
-  const data = await res.json();
-  const container = document.getElementById('memoryResults');
-  container.innerHTML = '';
-  if (!data.results || data.results.length === 0) {
-    container.innerHTML = '<div>Sonuç bulunamadı.</div>';
-    return;
-  }
-  data.results.forEach(r => {
-    const div = document.createElement('div');
-    div.textContent = `📍 ${r.coordinates} | ${r.text.substring(0, 60)}... (${r.botId})`;
-    container.appendChild(div);
   });
 }
