@@ -1,40 +1,5 @@
-# Node
-node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-
-# Environment
 .env
-.env.local
-.env.*.local
-
-# Build
-dist/
-build/
-out/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-logs/
-*.log
-
-# Data directories (persistent disk)
+node_modules/
 vectordb/
 temp_vision/
-*.db
-*.sqlite
-*.sqlite3
-
-# Temporary files
-tmp/
-temp/
+*.log
