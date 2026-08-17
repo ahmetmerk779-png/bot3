@@ -1,4 +1,3 @@
-// src/web/server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -10,14 +9,13 @@ const Logger = require('../utils/Logger');
 class WebServer {
   constructor(botManager) {
     this.app = express();
-    this.botManager = botManager; // Bot'u başlatma/durdurma yetkisi
+    this.botManager = botManager;
     this.port = process.env.PORT || 3000;
 
     this.app.use(cors());
     this.app.use(express.json());
     this.app.use(express.static(path.join(__dirname, 'public')));
 
-    // API: Konfigürasyon gönder (Botu başlat)
     this.app.post('/api/config', async (req, res) => {
       const { host, port, username, apiKey } = req.body;
       if (!host || !apiKey) {
@@ -31,7 +29,6 @@ class WebServer {
       }
     });
 
-    // API: Botu durdur
     this.app.post('/api/stop', async (req, res) => {
       try {
         await this.botManager.stopBot();
@@ -41,7 +38,6 @@ class WebServer {
       }
     });
 
-    // API: Komut gönder
     this.app.post('/api/command', async (req, res) => {
       const { command } = req.body;
       if (!command) return res.status(400).json({ error: 'Komut gerekli' });
@@ -53,7 +49,6 @@ class WebServer {
       }
     });
 
-    // API: Görsel
     this.app.get('/api/vision/latest', (req, res) => {
       const dir = path.join(__dirname, '../../temp_vision');
       if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Görsel yok' });
@@ -62,13 +57,10 @@ class WebServer {
       res.sendFile(path.join(dir, files[0]));
     });
 
-    // API: Bot durumu
     this.app.get('/api/status', (req, res) => {
-      const status = this.botManager.getStatus();
-      res.json(status);
+      res.json(this.botManager.getStatus());
     });
 
-    // API: Hafıza ara
     this.app.post('/api/memory/search', express.json(), async (req, res) => {
       const { query } = req.body;
       if (!query) return res.status(400).json({ error: 'Sorgu gerekli' });
@@ -80,7 +72,6 @@ class WebServer {
       }
     });
 
-    // Socket.io
     this.server = http.createServer(this.app);
     this.io = socketIo(this.server, {
       cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -94,11 +85,9 @@ class WebServer {
     this.io.on('connection', (socket) => {
       Logger.info(`🟢 Dashboard bağlandı: ${socket.id}`);
       socket.emit('status', this.botManager.getStatus());
-
       const interval = setInterval(() => {
         socket.emit('status', this.botManager.getStatus());
       }, 5000);
-
       socket.on('disconnect', () => {
         clearInterval(interval);
         Logger.info(`🔴 Dashboard ayrıldı: ${socket.id}`);
@@ -106,7 +95,6 @@ class WebServer {
     });
   }
 
-  // Log broadcast
   broadcastLog(level, message) {
     this.io.emit('log', { level, message, timestamp: Date.now() });
   }
