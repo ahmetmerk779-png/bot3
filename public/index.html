@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mineflayer Otonom Bot Paneli</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0f172a; color: #f8fafc; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body class="p-3 md:p-6 text-sm">
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Üst Bar -->
+    <div class="flex flex-wrap justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🤖</span>
+        <div>
+          <h1 class="text-lg font-bold text-emerald-400">Mineflayer Bot Kontrol Paneli</h1>
+          <p class="text-xs text-slate-400">Prismarine Viewer Entegre Otonom Yönetim</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="fetchStatus()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-semibold">
+          🔄 Durumu Yenile
+        </button>
+        <button onclick="sendApi('/api/stop', {})" class="bg-rose-600 hover:bg-rose-500 px-3 py-2 rounded-lg text-xs font-bold text-white">
+          🛑 Tüm Botları Kapat
+        </button>
+      </div>
+    </div>
+
+    <!-- Ana Panel Izgarası -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- SOL SÜTUN: Bağlantı & Otomasyon -->
+      <div class="space-y-6">
+        
+        <!-- Bot Başlatma Formu -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
+          <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">🚀 Sunucuya Bağlan</h2>
+          <div>
+            <label class="block text-xs mb-1 text-slate-300">Sunucu IP / Host</label>
+            <input id="host" type="text" placeholder="play.example.com" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none focus:border-indigo-500">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs mb-1 text-slate-300">Port</label>
+              <input id="port" type="number" value="25565" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
+            </div>
+            <div>
+              <label class="block text-xs mb-1 text-slate-300">Sürüm</label>
+              <input id="version" type="text" value="1.21.11" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs mb-1 text-slate-300">Kullanıcı Adı</label>
+            <input id="username" type="text" placeholder="Bot_Adı" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs mb-1 text-slate-300">Şifre</label>
+              <input id="password" type="password" value="Sifre12345" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
+            </div>
+            <div>
+              <label class="block text-xs mb-1 text-slate-300">Bot Sayısı</label>
+              <input id="count" type="number" value="1" min="1" max="10" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
+            </div>
+          </div>
+          <button onclick="spawnBots()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg transition-all text-xs">
+            ⚡ Botları Başlat
+          </button>
+        </div>
+
+        <!-- Hızlı Eylemler & Otomasyon -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
+          <h2 class="text-sm font-bold text-amber-400 uppercase tracking-wider">🛠️ Otomasyon</h2>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="sendApi('/api/trash/clear', {})" class="bg-slate-700 hover:bg-slate-600 p-2.5 rounded-lg text-xs font-medium">🗑️ Çöp Temizle</button>
+            <button onclick="sendApi('/api/equip-armor', {})" class="bg-slate-700 hover:bg-slate-600 p-2.5 rounded-lg text-xs font-medium">🛡️ Zırh Giydir</button>
+            <button onclick="sendApi('/api/afk/start', {})" class="bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-700 p-2.5 rounded-lg text-xs text-emerald-300 font-medium">🌀 Anti-AFK Aç</button>
+            <button onclick="sendApi('/api/afk/stop', {})" class="bg-rose-900/40 hover:bg-rose-900/60 border border-rose-700 p-2.5 rounded-lg text-xs text-rose-300 font-medium">⛔ Anti-AFK Kapat</button>
+          </div>
+        </div>
+
+        <!-- Sohbet Gönderme -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
+          <h2 class="text-sm font-bold text-sky-400 uppercase tracking-wider">💬 Sohbet / Komut</h2>
+          <div class="flex gap-2">
+            <input id="chatMsg" type="text" placeholder="Mesaj veya /komut..." class="flex-1 bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none">
+            <button onclick="sendChat()" class="bg-sky-600 hover:bg-sky-500 px-4 py-2 rounded-lg text-xs font-bold">Gönder</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ORTA SÜTUN: ÖZEL PRISMARINE VIEWER & KOORDİNAT BÖLÜMÜ -->
+      <div class="space-y-6">
+        
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+            <h2 class="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <span>👁️</span> Prismarine Viewer & 3D Kontrol
+            </h2>
+            <span class="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">3D Viewport</span>
+          </div>
+
+          <!-- Canlı 3D Ekran -->
+          <div class="w-full h-64 bg-slate-950 rounded-lg overflow-hidden border border-slate-700 relative">
+            <iframe id="viewerFrame" src="/viewer" class="w-full h-full border-0"></iframe>
+            <div class="absolute inset-0 flex items-center justify-center text-xs text-slate-500 pointer-events-none -z-10">
+              Prismarine Viewer Aktif Değil veya Yükleniyor...
+            </div>
+          </div>
+
+          <!-- PRISMARINE İÇİNDEKİ KOORDİNAT & HAREKET KONTROLLERİ -->
+          <div class="bg-slate-900/80 p-4 rounded-lg border border-slate-700/70 space-y-3">
+            <h3 class="text-xs font-bold text-purple-400 uppercase">📍 3D Harita & Pathfinding Kontrolü</h3>
+            
+            <!-- Koordinata Yürüme -->
+            <div>
+              <label class="block text-[11px] mb-1 text-slate-400">Hedef Koordinatlar (X, Y, Z)</label>
+              <div class="grid grid-cols-3 gap-2 mb-2">
+                <input id="coordX" type="number" placeholder="X" class="bg-slate-950 border border-slate-700 p-2 rounded text-xs text-center outline-none focus:border-purple-500">
+                <input id="coordY" type="number" placeholder="Y" class="bg-slate-950 border border-slate-700 p-2 rounded text-xs text-center outline-none focus:border-purple-500">
+                <input id="coordZ" type="number" placeholder="Z" class="bg-slate-950 border border-slate-700 p-2 rounded text-xs text-center outline-none focus:border-purple-500">
+              </div>
+              <button onclick="gotoCoords()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-lg text-xs transition-all">
+                🚶‍♂️ Bu Koordinata Yürü (Pathfinding)
+              </button>
+            </div>
+
+            <!-- Oyuncu Takip / Saldırı -->
+            <div class="pt-2 border-t border-slate-800">
+              <label class="block text-[11px] mb-1 text-slate-400">Görüş Alanındaki Oyuncuyu Hedefle</label>
+              <div class="flex gap-2">
+                <input id="targetUser" type="text" placeholder="Oyuncu Adı" class="flex-1 bg-slate-950 border border-slate-700 p-2 rounded text-xs outline-none focus:border-purple-500">
+                <button onclick="sendApi('/api/follow', { username: document.getElementById('targetUser').value })" class="bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded text-xs">Takip</button>
+                <button onclick="sendApi('/api/attack', { entityName: document.getElementById('targetUser').value })" class="bg-rose-600 hover:bg-rose-500 px-3 py-2 rounded text-xs">Saldır</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- SAĞ SÜTUN: Bot Durumu & Konsol -->
+      <div class="space-y-6">
+        
+        <!-- Bot Durum Bilgileri -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
+          <h2 class="text-sm font-bold text-sky-400 uppercase tracking-wider">📊 Bot Durumları</h2>
+          <div id="botList" class="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+            <p class="text-xs text-slate-500">Aktif bot yok veya veri bekleniyor...</p>
+          </div>
+        </div>
+
+        <!-- Canlı Konsol Logları -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
+          <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider">📄 Canlı Konsol Logları</h2>
+          <div id="logs" class="w-full h-56 bg-slate-950 p-3 rounded-lg font-mono text-[11px] text-slate-300 overflow-y-auto space-y-1 border border-slate-800">
+            <div>[SİSTEM] Panel hazır. Sistem bekleniyor...</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function log(msg) {
+      const container = document.getElementById('logs');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = "border-b border-slate-900/50 pb-0.5";
+      div.innerHTML = `<span class="text-slate-500">[${time}]</span> ${msg}`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const container = document.getElementById('botList');
+        
+        if (!data.bots || data.bots.length === 0) {
+          container.innerHTML = '<p class="text-xs text-slate-500">Aktif bot yok.</p>';
+          return;
+        }
+
+        container.innerHTML = data.bots.map(b => `
+          <div class="bg-slate-900 p-3 rounded-lg border border-slate-700/60 space-y-1 text-xs">
+            <div class="flex justify-between items-center font-bold text-emerald-400">
+              <span>${b.username}</span>
+              <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">TPS: ${b.tps || '20'}</span>
+            </div>
+            <div class="text-slate-300">❤️ Can: ${b.health ?? '-'} / 20 | 🍗 Açlık: ${b.food ?? '-'} / 20</div>
+            <div class="text-slate-400 text-[11px]">📍 X: ${b.position?.x ?? 0}, Y: ${b.position?.y ?? 0}, Z: ${b.position?.z ?? 0}</div>
+            <div class="text-slate-400 text-[11px]">✋ Elinde: ${b.heldItem || 'Boş'}</div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function spawnBots() {
+      const body = {
+        host: document.getElementById('host').value,
+        port: parseInt(document.getElementById('port').value),
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        version: document.getElementById('version').value,
+        count: parseInt(document.getElementById('count').value)
+      };
+      log(`Botlar başlatılıyor: ${body.username} (${body.count} adet)...`);
+      await sendApi('/api/spawn', body);
+      setTimeout(fetchStatus, 3000);
+    }
+
+    async function sendChat() {
+      const msg = document.getElementById('chatMsg').value;
+      if (!msg) return;
+      log(`Sohbet gönderiliyor: ${msg}`);
+      await sendApi('/api/chat', { message: msg });
+      document.getElementById('chatMsg').value = '';
+    }
+
+    async function gotoCoords() {
+      const x = parseFloat(document.getElementById('coordX').value);
+      const y = parseFloat(document.getElementById('coordY').value);
+      const z = parseFloat(document.getElementById('coordZ').value);
+      
+      if (isNaN(x) || isNaN(y) || isNaN(z)) {
+        alert('Lütfen geçerli X, Y, Z koordinatları girin!');
+        return;
+      }
+      log(`3D Viewport Hedefi: X:${x}, Y:${y}, Z:${z}`);
+      await sendApi('/api/goto', { x, y, z });
+    }
+
+    async function sendApi(url, body) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        log(`API Yanıtı: ${data.message || 'Başarılı'}`);
+        fetchStatus();
+      } catch (e) {
+        log(`❌ Hata: ${url} çağrısı başarısız.`);
+      }
+    }
+
+    setInterval(fetchStatus, 4000);
+    fetchStatus();
+  </script>
+</body>
+  </html>
